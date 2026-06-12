@@ -1,4 +1,5 @@
 #include "wmbus_meter.h"
+#include "esphome/components/wmbus_common/meters_common_implementation.h"
 
 namespace esphome {
 namespace wmbus_meter {
@@ -80,6 +81,16 @@ void Meter::handle_frame(wmbus_radio::Frame *frame) {
     return;
   }
 
+  // Quick header-only check before allocating the full Telegram on the heap.
+  // This avoids expensive heap allocation for frames that don't match this meter.
+  Telegram header_check;
+  if (!header_check.parseHeader(frame->data()))
+    return;
+  // nullptr for MeterInfo is correct: isTelegramForMeter requires exactly one
+  // of meter or mi to be non-null; we supply meter, so mi must be nullptr.
+  if (!MeterCommonImplementation::isTelegramForMeter(&header_check, this->meter.get(), nullptr))
+    return;
+
   auto about =
       AboutTelegram(App.get_friendly_name(), frame->rssi(), FrameType::WMBUS);
 
@@ -126,6 +137,31 @@ optional<std::string> Meter::get_string_field(std::string field_name) {
   auto field_info = this->meter->findFieldInfo(field_name, Quantity::Text);
   if (field_info)
     return this->meter->getStringValue(field_info);
+
+  // Fallback: try PointInTime (date/datetime) fields.
+  // Date fields like "history_1_date" are stored as numeric values keyed by
+  // (vname, unit), e.g. ("history_1", DateLT). findFieldInfo() cannot be used
+  // here because for template-based fields (e.g. "history_{storage_counter - 1
+  // counter}") it matches by fi->vname() which returns the raw template string,
+  // not the resolved instance name "history_1". Instead we mirror what the JSON
+  // generator does: extract vname and unit from the field name, verify the unit
+  // belongs to Quantity::PointInTime, then call getNumericValue(vname, unit)
+  // directly using the string-based overload.
+  std::string vname;
+  Unit unit;
+  if (extractUnit(field_name, &vname, &unit) && toQuantity(unit) == Quantity::PointInTime) {
+    double value = this->meter->getNumericValue(vname, unit);
+    if (!std::isnan(value)) {
+      if (unit == Unit::DateLT)
+        return strdate(value);
+      if (unit == Unit::DateTimeLT)
+        return strdatetime(value);
+      if (unit == Unit::DateTimeUTC)
+        return strTimestampUTC(value);
+      // Covers Unit::TimeLT, Unit::UnixTimestamp and any future PointInTime units.
+      return valueToString(value, unit);
+    }
+  }
 
   return {};
 }
