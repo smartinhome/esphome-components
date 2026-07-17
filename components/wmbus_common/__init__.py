@@ -16,12 +16,38 @@ WMBusCommon = wmbus_common_ns.class_("WMBusCommon", cg.Component)
 
 
 AVAILABLE_DRIVERS = {
-    f.stem.removeprefix("driver_") for f in Path(__file__).parent.glob("driver_*.cc")
+    f.stem.removeprefix("driver_") for f in Path(__file__).parent.glob("driver_*.cpp")
 }
 
-# Allow loader/codegen to pick up C++ sources with .cc extension.
-# (wmbus_common uses many .cc files; ESPHome defaults don't always include it.)
+# Keep ".cc" registered so ESPHome's writer cleans up stale *.cc copies left
+# in existing build trees from older versions of this component (sources were
+# renamed to .cpp for the native ESP-IDF/CMake build in ESPHome >=2026.7,
+# which only compiles *.cpp/*.c).
 SOURCE_FILE_EXTENSIONS.add(".cc")
+
+
+def FILTER_SOURCE_FILES() -> list[str]:
+    """Exclude driver_*.cpp files for drivers not selected in the config.
+
+    This replaces the PlatformIO ``extra_scripts`` pre-build filter, which no
+    longer runs under the native ESP-IDF/CMake build used by ESPHome >=2026.7.
+    Filtering happens at source-copy time, so unselected drivers never reach
+    the build tree on either build system.
+    """
+    selected = _SELECTED_DRIVERS
+    if not selected:
+        # No explicit selection: keep all drivers (same as the old behaviour).
+        return []
+    return [
+        f"driver_{name}.cpp"
+        for name in AVAILABLE_DRIVERS
+        if name not in selected
+    ]
+
+
+# Populated in to_code(); read by FILTER_SOURCE_FILES during source copying,
+# which ESPHome runs after code generation.
+_SELECTED_DRIVERS: set[str] = set()
 
 
 def validate_driver(value):
@@ -56,7 +82,9 @@ CONFIG_SCHEMA = cv.Schema(
 
 
 async def to_code(config):
+    global _SELECTED_DRIVERS
     selected_drivers = set(config.get(CONF_DRIVERS, set()))
+    _SELECTED_DRIVERS = selected_drivers
 
     if selected_drivers:
         selected = ",".join(sorted(selected_drivers))
