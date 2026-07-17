@@ -22,7 +22,7 @@ namespace
 {
     struct Driver : public virtual MeterCommonImplementation
     {
-        Driver(MeterInfo &mi, DriverInfo &di);
+        [[maybe_unused]] Driver(MeterInfo &mi, DriverInfo &di);
 
         // Three types of telegrams (T1A1 T1A2 T1B) they all share total_energy_kwh and total_volume_m3.
         // The T1A1 and T1B also contains a status.

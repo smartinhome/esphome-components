@@ -20,12 +20,14 @@ Packet::Packet() { this->data_.reserve(WMBUS_PREAMBLE_SIZE); }
 
 // Determine the link mode based on the first byte of the data
 LinkMode Packet::link_mode() {
-  if (this->link_mode_ == LinkMode::UNKNOWN)
-    if (this->data_.size())
+  if (this->link_mode_ == LinkMode::UNKNOWN) {
+    if (this->data_.size()) {
       if (this->data_[0] == WMBUS_MODE_C_PREAMBLE)
         this->link_mode_ = LinkMode::C1;
       else
         this->link_mode_ = LinkMode::T1;
+    }
+  }
 
   return this->link_mode_;
 }
@@ -58,7 +60,10 @@ uint8_t Packet::l_field() {
     auto decoded = decode3of6(this->data_);
     if (decoded)
       return (*decoded)[0];
+    break;
   }
+  default:
+    break;
   }
   return 0;
 }

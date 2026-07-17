@@ -41,7 +41,7 @@ namespace
 
     struct Driver : public virtual MeterCommonImplementation
     {
-        Driver(MeterInfo &mi, DriverInfo &di);
+        [[maybe_unused]] Driver(MeterInfo &mi, DriverInfo &di);
 
         void processContent(Telegram *t);
 

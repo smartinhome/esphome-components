@@ -16,7 +16,7 @@ static bool should_log_spi_ff_warning_() {
   if (now - last_warn_ms >= 1000) {
     last_warn_ms = now;
     if (suppressed > 0) {
-      ESP_LOGW(TAG, "suppressed %u repeated SPI 0xFF warnings", suppressed);
+      ESP_LOGW(TAG, "suppressed %u repeated SPI 0xFF warnings", (unsigned)suppressed);
       suppressed = 0;
     }
     return true;
