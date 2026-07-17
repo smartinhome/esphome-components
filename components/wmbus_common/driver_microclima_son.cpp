@@ -138,3 +138,8 @@ namespace
 // telegram=|ae44ee4d981241361c047a8800a0253b284476637cd82b91e5763f0fb7f0cbfed9d4fea319c4e027769b753b941adfc355e2972bbffe8713c2f424852dc53ac3ddbcee61df42fb997614850d9f4cef18611921cf325888f9787890da055244641b1f2b41bd4a87571f8c305eca56c7f735ee23a636a3e9ca7183ae205cffaa536e15b13f76204c13f4673ca672dba71026b4dd685722c7c3957aefc14cdb6a37890d7026ba1fcb6ec988e6cf22e1f8|
 // {"media":"heat","meter":"microclima_son","name":"Heat","id":"36411298","status":"OK","total_energy_consumption_kwh":50,"total_volume_m3":8.795,"timestamp":"1111-11-11T11:11:11Z"}
 // |Heat;36411298;OK;50;8.795;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_microclima_son() {}

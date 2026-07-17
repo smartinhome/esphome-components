@@ -150,3 +150,8 @@ Driver::Driver(MeterInfo &mi, DriverInfo &di)
 // 4GGU","supplier_info":"00","parameter_set":"02","meter_timestamp":"2021-09-15
 // 13:18:30","timestamp":"1111-11-11T11:11:11Z"}
 // |GasMeter;00043094;917;911.32;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_unismart() {}

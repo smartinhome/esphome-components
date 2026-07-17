@@ -97,3 +97,8 @@ namespace
 // telegram=|2e44333005020100071d7ab66800002f2f02fd1b550002fd971d01000efd3a2300000000008e40fd3a000000000000|
 // {"_":"telegram","media":"reserved","meter":"lansendw","name":"Dooro","id":"00010205","status":"OPEN","a_counter":23,"b_counter":0,"error_flags":"ERROR_FLAGS_1 PERMANENT_ERROR UNKNOWN_60","timestamp":"1111-11-11T11:11:11Z"}
 // |Dooro;00010205;OPEN;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_lansendw() {}

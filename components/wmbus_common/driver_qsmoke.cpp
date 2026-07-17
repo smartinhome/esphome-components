@@ -149,3 +149,8 @@ namespace
 // telegram=|3744934450881248231A7A5C00002081027C034955230082026CFFFF81037C034C41230082036CFFFF02FD170000326CFFFF046D2514BC2B|
 // {"_":"telegram","media":"smoke detector","meter":"qsmoke","name":"QSmokep","id":"48128850","status":"OK","last_alarm_date":"2127-15-31","alarm_counter":0,"message_datetime":"2021-11-28 20:37","test_button_last_date":"2127-15-31","test_button_counter":0,"at_error_date":"2127-15-31","timestamp":"1111-11-11T11:11:11Z"}
 // |QSmokep;48128850;OK;2127-15-31;0;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_qsmoke() {}

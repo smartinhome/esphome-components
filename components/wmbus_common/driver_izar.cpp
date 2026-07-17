@@ -316,3 +316,8 @@ namespace
 // telegram=|19442423860775035048A251520015BEB6B2E1ED623A18FC74A5|
 // {"_":"telegram","media":"water","meter":"izar","name":"IzarWater6","id":"48500375","total_m3":521.602,"last_month_total_m3":519.147,"last_month_measure_date":"2021-11-15","remaining_battery_life_y":9,"current_alarms":"no_alarm","previous_alarms":"leakage","transmit_period_s":8,"timestamp":"1111-11-11T11:11:11Z"}
 // |IzarWater6;48500375;null;null;521.602;519.147;2021-11-15;9;no_alarm;leakage;8;null;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_izar() {}

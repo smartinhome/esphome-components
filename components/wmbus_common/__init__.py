@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import logging
+import re
 
 import esphome.config_validation as cv
 from esphome import codegen as cg
@@ -97,6 +98,17 @@ async def to_code(config):
     script_path = os.path.join(os.path.dirname(__file__), "filter_wmbus_drivers.py")
     if os.path.exists(script_path):
         cg.add_platformio_option("extra_scripts", [f"pre:{script_path}"])
+
+    # Drivers self-register via static initializers (registerDriver in each
+    # driver_*.cpp). Under the native ESP-IDF build (ESPHome >=2026.7) sources
+    # are linked as a static archive, so the linker drops driver objects that
+    # nothing references and their registrations never run. Reference each
+    # driver's keep-symbol anchor from generated code to force-link them.
+    anchored = sorted(selected_drivers) if selected_drivers else sorted(AVAILABLE_DRIVERS)
+    for name in anchored:
+        sym = "wmbus_driver_keep_" + re.sub(r"[^0-9A-Za-z_]", "_", name)
+        cg.add_global(cg.RawStatement(f'extern "C" void {sym}();'))
+        cg.add(cg.RawExpression(f"{sym}()"))
 
     var = cg.new_Pvariable(config[CONF_ID], sorted(selected_drivers))
     await cg.register_component(var, config)

@@ -70,3 +70,8 @@ namespace
 // telegram=|624468507578626728048C00F3900F002C25FEEB0600BA84134D9202A1327AFF003007102F2F_4406E1190000426CBF2C0F206730E2E7516874F5DB46B5A97816F575A29A1EA2717D6ADE5C2FE64517ED2B0497EE0FF64C2674CD0832572C484DDFED30|
 // {"_":"telegram","id": "67627875","media": "heat","meter": "vario411","name": "Howdy","target_date": "2021-12-31","target_kwh": 6625,"timestamp":"1111-11-11T11:11:11Z"}
 // |Howdy;67627875;6625;2021-12-31;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_vario411() {}

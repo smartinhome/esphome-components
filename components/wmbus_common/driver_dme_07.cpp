@@ -75,3 +75,8 @@ namespace
 // telegram=|1E44A511909192937B077A9F0010052F2F_04130347030002FD1700002F2F2F|
 // {"_":"telegram","media":"water","meter":"dme_07","name":"DigiWasser","id":"93929190","status":"OK","total_m3":214.787,"timestamp":"1111-11-11T11:11:11Z"}
 // |DigiWasser;93929190;214.787;OK;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_dme_07() {}

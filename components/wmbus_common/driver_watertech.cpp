@@ -74,3 +74,8 @@ namespace
 // telegram=|3144945E3838383859078C20007A010020252F2F_066D1C1F0EF021000413B91E000002FD17000002FD0F4C2B2F2F2F2F2F2F|
 // {"_":"telegram","media": "water","meter": "watertech","name": "wtt","id": "38383838","software_version" :"+L","meter_datetime": "2023-01-16 14:31:28","status": "OK","total_m3": 7.865, "timestamp":"1111-11-11T11:11:11Z"}
 // |wtt;38383838;OK;7.865;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_watertech() {}

@@ -112,3 +112,8 @@ namespace
 // telegram=|4644B4097172737405077AA5000610_1115F78184AB0F1D1E200000005904103103208047004A4800E73C00193E00453F003E4000E64000E74100F442000144001545005B460000|
 // {"_":"telegram","media":"water","meter":"rfmtx1","name":"Wasser","id":"74737271","total_m3":188.56,"meter_datetime":"2020-03-31 10:04:59","timestamp":"1111-11-11T11:11:11Z"}
 // |Wasser;74737271;188.56;2020-03-31 10:04:59;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_rfmtx1() {}

@@ -92,3 +92,8 @@ namespace
 // telegram=|_1C441486069C14000F0FA042F214000040030000000005FF0472BF1400|
 // {"_":"telegram","media":"water","meter":"apator08","name":"test_apator082","id":"00149c06","total_m3":457.579333,"timestamp":"1111-11-11T11:11:11Z"}
 // |test_apator082;00149c06;457.579333;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_apator08() {}

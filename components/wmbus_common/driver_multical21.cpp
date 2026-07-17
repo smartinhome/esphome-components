@@ -278,3 +278,8 @@ namespace
 // telegram=|21442D2C776655441B168D2079CC8C3A20_F4307912C40DFF00002F4E00003D010203|
 // {"_":"telegram","media":"cold water","meter":"multical21","name":"Vadden","id":"44556677","status":"OK","total_m3":20.015,"flow_temperature_c":2,"external_temperature_c":3,"max_flow_m3h":0.317,"current_status":"","time_dry":"","time_reversed":"","time_leaking":"","time_bursting":"","timestamp":"1111-11-11T11:11:11Z"}
 // |Vadden;44556677;20.015;null;0.317;2;3;OK;1111-11-11 11:11.11
+
+// Keep-symbol anchor: referenced from ESPHome-generated main.cpp so the
+// linker pulls this object file (and its static driver registration) out of
+// the static archive under the native ESP-IDF build (ESPHome >=2026.7).
+extern "C" void wmbus_driver_keep_multical21() {}
