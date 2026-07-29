@@ -92,6 +92,11 @@ private:
   // for the CC1101 FIFO to settle after the state machine has gone IDLE.
   static constexpr int MARCSTATE_RETRY_COUNT = 5;
   static constexpr uint32_t MARCSTATE_RETRY_DELAY_US = 100;
+  // Hard watchdog for the READ_DATA state.  Without it a frame that stops
+  // mid-transfer (collision, fading, wrong expected_length_) leaves the state
+  // machine stuck forever and the receiver silently stops delivering frames.
+  // Longest wM-Bus T frame is ~435 bytes @100 kbps = ~35 ms, so 500 ms is safe.
+  static constexpr uint32_t READ_DATA_TIMEOUT_MS = 500;
 };
 
 }

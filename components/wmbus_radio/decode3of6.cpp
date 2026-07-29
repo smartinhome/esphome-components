@@ -29,8 +29,10 @@ decode3of6(std::vector<uint8_t> &coded_data) {
     auto byte_idx = bit_idx / 8;
     auto bit_offset = bit_idx % 8;
 
+    if (byte_idx >= coded_data.size())
+      return {};
     uint8_t code = (data[byte_idx] << bit_offset);
-    if (bit_offset > 0)
+    if (bit_offset > 0 && (byte_idx + 1) < coded_data.size())
       code |= (data[byte_idx + 1] >> (8 - bit_offset));
     code >>= 2;
 

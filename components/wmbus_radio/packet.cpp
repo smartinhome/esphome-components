@@ -53,12 +53,16 @@ void Packet::set_requires_decode(bool required) {
 uint8_t Packet::l_field() {
   switch (this->link_mode()) {
   case LinkMode::C1:
-    return this->data_[2];
+    if (this->data_.size() > 2)
+      return this->data_[2];
+    break;
   case LinkMode::T1: {
+    if (this->data_.empty())
+      break;
     if (!this->requires_decode_)
       return this->data_[0];
     auto decoded = decode3of6(this->data_);
-    if (decoded)
+    if (decoded && !decoded->empty())
       return (*decoded)[0];
     break;
   }
@@ -91,9 +95,9 @@ size_t Packet::expected_size() {
       else
         this->expected_size_ = nrBytes;
     }
-    else if (this->data_[1] == WMBUS_BLOCK_A_PREAMBLE)
+    else if (this->data_.size() > 1 && this->data_[1] == WMBUS_BLOCK_A_PREAMBLE)
       this->expected_size_ = WMBUS_MODE_C_SUFIX_LEN + nrBytes;
-    else if (this->data_[1] == WMBUS_BLOCK_B_PREAMBLE)
+    else if (this->data_.size() > 1 && this->data_[1] == WMBUS_BLOCK_B_PREAMBLE)
       this->expected_size_ = WMBUS_MODE_C_SUFIX_LEN + 1 + l_field;
   }
   ESP_LOGV(TAG, "expected_size: %zu", this->expected_size_);
@@ -133,12 +137,15 @@ std::optional<Frame> Packet::convert_to_frame() {
           this->data_ = decoded_data.value();
       }
     } else if (this->link_mode() == LinkMode::C1) {
-      if (this->data_[1] == WMBUS_BLOCK_A_PREAMBLE)
-        this->frame_format_ = "A";
-      else if (this->data_[1] == WMBUS_BLOCK_B_PREAMBLE)
-        this->frame_format_ = "B";
-      this->data_.erase(this->data_.begin(),
-                        this->data_.begin() + WMBUS_MODE_C_SUFIX_LEN);
+      if (this->data_.size() > 1) {
+        if (this->data_[1] == WMBUS_BLOCK_A_PREAMBLE)
+          this->frame_format_ = "A";
+        else if (this->data_[1] == WMBUS_BLOCK_B_PREAMBLE)
+          this->frame_format_ = "B";
+      }
+      if (this->data_.size() >= WMBUS_MODE_C_SUFIX_LEN)
+        this->data_.erase(this->data_.begin(),
+                          this->data_.begin() + WMBUS_MODE_C_SUFIX_LEN);
     } else {
       ESP_LOGE(TAG, "unknown link mode!");
     }
@@ -171,9 +178,11 @@ std::vector<uint8_t> Frame::as_raw() { return this->data_; }
 std::string Frame::as_hex() { return format_hex(this->data_); }
 std::string Frame::as_rtlwmbus() {
   const size_t time_repr_size = sizeof("YYYY-MM-DD HH:MM:SS.00Z");
-  char time_buffer[time_repr_size];
+  char time_buffer[time_repr_size] = "1970-01-01 00:00:00.00Z";
   auto t = std::time(NULL);
-  std::strftime(time_buffer, time_repr_size, "%F %T.00Z", std::gmtime(&t));
+  auto *tm_info = std::gmtime(&t);
+  if (tm_info != nullptr)
+    std::strftime(time_buffer, time_repr_size, "%F %T.00Z", tm_info);
 
   auto output = std::string{};
   output.reserve(2 + 5 + 24 + 1 + 4 + 5 + 2 * this->data_.size() + 1);

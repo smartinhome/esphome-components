@@ -344,6 +344,12 @@ optional<uint8_t> CC1101::read() {
     }
     [[fallthrough]];
   case RxLoopState::READ_DATA:
+    if (millis() - this->sync_time_ > READ_DATA_TIMEOUT_MS) {
+      ESP_LOGW(TAG, "Timeout in READ_DATA (%zu/%zu bytes), resetting RX",
+               this->bytes_received_, this->expected_length_);
+      this->rx_state_ = RxLoopState::INIT_RX;
+      return {};
+    }
     while (true) {
       size_t bytes_before = this->bytes_received_;
       if (this->read_data_()) {

@@ -4041,7 +4041,9 @@ bool trimCRCsFrameFormatBInternal(std::vector<uchar> &payload,
     crc2_pos = len - 2;
   }
 
-  uint16_t calc_crc = crc16_EN13757(safeButUnsafeVectorPtr(payload), crc1_pos);
+  uchar *from1 = &payload[0];
+  size_t len1 = crc1_pos;
+  uint16_t calc_crc = crc16_EN13757(from1, len1);
   uint16_t check_crc = payload[crc1_pos] << 8 | payload[crc1_pos + 1];
 
   if (calc_crc != check_crc && !FUZZING) {
@@ -4059,7 +4061,11 @@ bool trimCRCsFrameFormatBInternal(std::vector<uchar> &payload,
   }
 
   if (crc2_pos > 0) {
-    calc_crc = crc16_EN13757(&payload[crc1_pos + 2], crc2_pos);
+    // Length must be the distance between the two CRC fields, not crc2_pos:
+    // using crc2_pos read ~126 bytes past the end of the vector for long B frames.
+    uchar *from2 = &payload[crc1_pos + 2];
+    size_t len2 = crc2_pos - crc1_pos - 2;
+    calc_crc = crc16_EN13757(from2, len2);
     check_crc = payload[crc2_pos] << 8 | payload[crc2_pos + 1];
 
     if (calc_crc != check_crc && !FUZZING) {

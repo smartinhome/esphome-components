@@ -38,8 +38,10 @@ void Radio::setup() {
     return;
   }
 
+  // 6 kB: the receive path can enter diagnostic logging (log_cc1101_snapshot_)
+  // with 15+ varargs, which alone costs >1 kB of stack on ESP-IDF.
   ASSERT_SETUP(xTaskCreate((TaskFunction_t)this->receiver_task, "radio_recv",
-                           3 * 1024, this, 2, &(this->receiver_task_handle_)));
+                           6 * 1024, this, 2, &(this->receiver_task_handle_)));
 
   ESP_LOGI(TAG, "Receiver task created [%p]", this->receiver_task_handle_);
 
@@ -86,7 +88,7 @@ void Radio::loop() {
 #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_DEBUG
     ESP_LOGD(TAG, "Telegram not handled by any handler");
     Telegram t;
-    if (t.parseHeader(frame->data()) && t.addresses.empty()) {
+    if (!t.parseHeader(frame->data()) || t.addresses.empty()) {
       ESP_LOGD(TAG, "Check if telegram can be parsed on:");
     } else {
       ESP_LOGD(TAG, "Check if telegram with address %s can be parsed on:",

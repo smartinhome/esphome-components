@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <memory.h>
 #include <numeric>
 #include <stdexcept>
@@ -739,7 +740,10 @@ std::string concatFields(Meter *m, Telegram *t, char c,
 bool MeterCommonImplementation::handleTelegram(
     AboutTelegram &about, std::vector<uchar> input_frame, bool simulated,
     std::vector<Address> *addresses, bool *id_match, Telegram *out_analyzed) {
-  Telegram t;
+  // Allocated on the heap: Telegram contains several vectors/maps/strings and
+  // would otherwise consume multiple kB of the caller's stack (loopTask).
+  auto t_owner = std::make_unique<Telegram>();
+  Telegram &t = *t_owner;
   t.about = about;
   bool ok = t.parseHeader(input_frame);
 
