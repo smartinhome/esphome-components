@@ -63,12 +63,23 @@ for _slot in range(7):
 
 
 def _apply_defaults(config):
-    for key, value in FIELD_DEFAULTS.get(config[CONF_FIELD], {}).items():
-        config.setdefault(key, value)
+    """Fill in per-field entity metadata before the schema runs.
+
+    This has to happen *before* validation, not after: sensor_schema turns
+    state_class, device_class and entity_category into EnumValue objects that
+    codegen dereferences, so a raw string injected afterwards reaches the
+    generated C++ as a string literal and fails to compile.
+    """
+    if isinstance(config, dict):
+        field = config.get(CONF_FIELD)
+        if isinstance(field, str):
+            for key, value in FIELD_DEFAULTS.get(field.lower(), {}).items():
+                config.setdefault(key, value)
     return config
 
 
 CONFIG_SCHEMA = cv.All(
+    _apply_defaults,
     sensor.sensor_schema(FlowisSensor)
     .extend(
         {
@@ -79,7 +90,6 @@ CONFIG_SCHEMA = cv.All(
         }
     )
     .extend(cv.COMPONENT_SCHEMA),
-    _apply_defaults,
 )
 
 

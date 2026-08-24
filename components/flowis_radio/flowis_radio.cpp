@@ -115,11 +115,15 @@ void FlowisRadio::handle_packet_() {
     ESP_LOGD(TAG, "Meter 0x%08X: %.3f m3, backflow=%u, alarm=%u, RSSI %d dBm",
              static_cast<unsigned>(telegram.meter_id), telegram.volume_m3(),
              telegram.backflow, telegram.alarm, rssi);
-    if (telegram.has_clock)
+    // Braces are load-bearing: ESP_LOGV expands to nothing once the log level
+    // is compiled out, which would otherwise leave a bare `if (...) ;`.
+    if (telegram.has_clock) {
       ESP_LOGV(TAG, "  device clock %s%s", telegram.clock_to_string().c_str(),
                telegram.clock_dst ? " (DST)" : "");
-    if (telegram.has_archive)
+    }
+    if (telegram.has_archive) {
       ESP_LOGV(TAG, "  archive %.3f m3", telegram.archive_m3());
+    }
   } else if (telegram.has_history) {
     ESP_LOGD(TAG,
              "Meter 0x%08X history: %u | %u %u %u %u %u %u l, RSSI %d dBm",
