@@ -1,0 +1,233 @@
+esphome:
+  name: flowis868
+  name_add_mac_suffix: false
+  comment: SIH Flowis Reader 868
+  on_boot:
+    priority: 600
+    then:
+      - light.turn_on:
+          id: led_onboard
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 40%
+  project:
+    name: smartinhome_pl.SIH Flowis Reader 868MHz
+    version: "1.0.0"
+
+esp32:
+  board: lolin_s3_mini
+  variant: ESP32S3
+  cpu_frequency: 160MHz
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+
+web_server:
+  version: 3
+
+logger:
+  level: DEBUG
+  tx_buffer_size: 2048
+  baud_rate: 115200
+  logs:
+    component: INFO
+    esp32: INFO
+    spi: INFO
+    app: INFO
+    wifi: ERROR
+    flowis_radio: DEBUG
+    flowis_radio.cc1101: INFO
+    flowis_radio.telegram: INFO
+    flowis_meter: INFO
+
+api:
+
+ota:
+  - platform: esphome
+  - platform: web_server
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "SIH Flowis 1.0"
+
+external_components:
+  - source: github://smartinhome/esphome-components@main
+    components: [flowis_radio, flowis_meter]
+    refresh: 0s
+
+time:
+  - platform: homeassistant
+    id: ha_time
+    timezone: "Europe/Warsaw"
+
+# Ten sam pinout co SIH wMbus Reader 868 — CC1101 na SPI2.
+spi:
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+  miso_pin: GPIO13
+
+flowis_radio:
+  id: flowis
+  cs_pin: GPIO10
+  gdo0_pin: GPIO21
+  gdo2_pin: GPIO14
+  # Nośna Flowis. 868.000 to wartość raportowana przez użytkowników
+  # modułów Flowis — NIE 868.950 używane przez wM-Bus T/C.
+  # Jeśli nic nie przychodzi, przeskanuj pasmo (patrz FLOWIS.md).
+  frequency: 868.000
+
+  on_telegram:
+    # Miganie diodą na każdą poprawną ramkę.
+    - output.turn_on: status_led_flowis
+    - delay: 150ms
+    - output.turn_off: status_led_flowis
+
+    # Log wszystkich liczników w zasięgu, także nieskonfigurowanych poniżej.
+    # Służy do inwentaryzacji ID w budynku — po spisaniu można podnieść
+    # poziom logu 'flowis_radio' na INFO, żeby to wyciszyć.
+    - logger.log:
+        level: DEBUG
+        format: "FLOWIS 0x%08X typ=%u RSSI=%ddBm %s"
+        args:
+          - "(unsigned) telegram.meter_id"
+          - "telegram.type"
+          - "telegram.rssi"
+          - "telegram.to_hex().c_str()"
+
+flowis_meter:
+  - id: licznik_wody
+    meter_id: 0x14445217
+
+output:
+  - platform: gpio
+    id: status_led_flowis
+    pin: GPIO18
+    inverted: True
+
+binary_sensor:
+  - platform: status
+    name: "WiFi Status"
+    id: wifi_status
+    on_press:
+      then:
+        - light.turn_on:
+            id: led_onboard
+            red: 0%
+            green: 100%
+            blue: 0%
+            brightness: 40%
+    on_release:
+      then:
+        - light.turn_on:
+            id: led_onboard
+            red: 100%
+            green: 0%
+            blue: 0%
+            brightness: 40%
+
+light:
+  - platform: esp32_rmt_led_strip
+    name: LED RGB
+    id: led_onboard
+    pin: GPIO47
+    chipset: WS2812
+    num_leds: 1
+    channel_colors: RGB
+    entity_category: diagnostic
+    icon: mdi:led-on
+    default_transition_length: 0s
+    gamma_correct: 2.8
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal dB"
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: internal_temperature
+    name: "Temperatura Procesora"
+    device_class: temperature
+    entity_category: diagnostic
+
+  # ---- licznik wody -------------------------------------------------------
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: total_m3
+    name: "Woda"
+
+  # Stan zapisany w archiwum licznika — odczyt rozliczeniowy.
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: archive_m3
+    name: "Woda stan archiwalny"
+
+  # Historia z telegramu typu 2. period_0 = od zapisu archiwalnego,
+  # period_1..6 = poprzednie okresy, od najnowszego.
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: period_0_m3
+    name: "Woda okres bieżący"
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: period_1_m3
+    name: "Woda okres poprzedni"
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: period_2_m3
+    name: "Woda okres -2"
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: backflow
+    name: "Woda przepływ wsteczny"
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: alarm
+    name: "Woda alarm"
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: rssi_dbm
+    name: "Woda RSSI"
+
+  # ---- diagnostyka odbiornika --------------------------------------------
+
+  - platform: template
+    name: "Ramki odebrane"
+    lambda: return id(flowis).get_frames_received();
+    update_interval: 60s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    entity_category: diagnostic
+    icon: "mdi:radio-tower"
+
+  - platform: template
+    name: "Ramki odrzucone (CRC)"
+    lambda: return id(flowis).get_crc_errors();
+    update_interval: 60s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    entity_category: diagnostic
+    icon: "mdi:alert-circle-outline"
+
+text_sensor:
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: device_time
+    name: "Woda zegar licznika"
+    entity_category: diagnostic
+    icon: "mdi:clock-outline"
+
+  - platform: flowis_meter
+    parent_id: licznik_wody
+    field: telegram_hex
+    name: "Woda ostatnia ramka"
+    entity_category: diagnostic
+    icon: "mdi:hexadecimal"
