@@ -99,7 +99,7 @@ flowis_radio:
 
 flowis_meter:
   - id: licznik_wody
-    meter_id: 0x14445217
+    meter_id: 0x11111111
 
 output:
   - platform: gpio
