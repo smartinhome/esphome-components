@@ -7,13 +7,13 @@ from esphome.const import (
     CONF_PAYLOAD,
     CONF_TRIGGER_ID,
     CONF_MODE,
+    CONF_QOS,
+    CONF_RETAIN,
+    CONF_TOPIC,
 )
 from esphome import automation
-from esphome.components.mqtt import (
-    MQTT_PUBLISH_ACTION_SCHEMA,
-    MQTTPublishAction,
-    mqtt_publish_action_to_code,
-)
+from esphome.components import mqtt
+from esphome.components.mqtt import MQTT_PUBLISH_ACTION_SCHEMA
 
 from ..wmbus_radio import RadioComponent
 from ..wmbus_common import validate_driver
@@ -108,9 +108,27 @@ TELEGRAM_MQTT_PUBLISH_ACTION_SCHEMA = cv.All(
 )
 
 
-automation.register_action(
-    "wmbus_meter.send_telegram_with_mqtt",
-    MQTTPublishAction,
-    TELEGRAM_MQTT_PUBLISH_ACTION_SCHEMA,
-    synchronous=True,
-)(mqtt_publish_action_to_code)
+if hasattr(mqtt, "MQTTPublishAction"):
+    # ESPHome < 2026.10: mqtt.publish is backed by the MQTTPublishAction class.
+    automation.register_action(
+        "wmbus_meter.send_telegram_with_mqtt",
+        mqtt.MQTTPublishAction,
+        TELEGRAM_MQTT_PUBLISH_ACTION_SCHEMA,
+        synchronous=True,
+    )(mqtt.mqtt_publish_action_to_code)
+else:
+    # ESPHome 2026.10+: mqtt.publish became a register_apply_action with no C++
+    # class, so forward the same fields straight to MQTTClientComponent::publish.
+    automation.register_apply_action(
+        "wmbus_meter.send_telegram_with_mqtt",
+        TELEGRAM_MQTT_PUBLISH_ACTION_SCHEMA,
+        automation.ApplyCall(
+            "publish({}, {}, {}, {})",
+            (
+                (CONF_TOPIC, "std::string", mqtt._std_string),
+                (CONF_PAYLOAD, "std::string", mqtt._std_string),
+                (CONF_QOS, cg.uint8),
+                (CONF_RETAIN, cg.bool_),
+            ),
+        ),
+    )
