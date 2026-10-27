@@ -191,47 +191,60 @@ namespace {
         int len = bytes.size();
 
         if (i >= len) return;
+        // The first byte is a bit mask telling which blocks follow, in this order:
+        //   0x01 battery (1 byte), 0x02 fraud (3 bytes), 0x80 leak date (3 bytes),
+        //   0x04 backflow (4 bytes), 0x10 monthly totals (12 x 3 bytes).
+        // The bits outside 0x97 carry no known meaning and are ignored.
+        // Known frames: 0x15, 0x95 and 0x17 (battery, fraud, backflow, monthly).
         uchar frame_identifier = bytes[i];
-        if (frame_identifier == 0x15) {
-            t->addSpecialExplanation(i + offset, 1, KindOfData::PROTOCOL,
-                    Understanding::FULL, "*** %02X frame content: %s",
-                    frame_identifier, "Backflow, alarms and monthly data");
-            setStringValue("contents", "Backflow, alarms and monthly data");
-        } else if (frame_identifier == 0x95) {
-            t->addSpecialExplanation(i + offset, 1, KindOfData::PROTOCOL,
-                    Understanding::FULL, "*** %02X frame content: %s",
-                    frame_identifier,
-                    "Backflow, leak date, alarms and monthly data");
-            setStringValue("contents",
-                    "Backflow, leak date, alarms and monthly data");
-        } else {
-            t->addSpecialExplanation(i + offset, 1, KindOfData::PROTOCOL,
-                    Understanding::NONE,
-                    "*** %02X frame content unknown, please open issue with this telegram for driver improvement",
-                    frame_identifier);
-            setStringValue("contents",
-                    "unknown, please open issue with this telegram for driver improvement");
-            return;
+        bool has_battery = frame_identifier & 0x01;
+        bool has_fraud = frame_identifier & 0x02;
+        bool has_backflow = frame_identifier & 0x04;
+        bool has_monthly = frame_identifier & 0x10;
+        bool has_leak = frame_identifier & 0x80;
+
+        std::string contents;
+        auto add_content = [&contents](const char *name) {
+            if (!contents.empty()) contents += " ";
+            contents += name;
+        };
+        if (has_backflow) add_content("BACKFLOW");
+        if (has_battery) add_content("BATTERY_VOLTAGE");
+        if (has_fraud) add_content("FRAUD_DATE");
+        if (has_leak) add_content("LEAK_DATE");
+        if (has_monthly) add_content("MONTHLY_DATA");
+        t->addSpecialExplanation(i + offset, 1, KindOfData::PROTOCOL,
+                Understanding::FULL, "*** %02X frame content: %s",
+                frame_identifier, contents.c_str());
+        setStringValue("contents", contents);
+        i++;
+
+        if (has_battery) {
+            if (i >= len) return;
+            // only the bottom half changes the voltage, top half's purpose is unknown
+            uchar somethingAndVoltage = bytes[i];
+            double voltage = getVoltage(somethingAndVoltage & 0x0F);
+            t->addSpecialExplanation(i + offset, 1, KindOfData::CONTENT,
+                    Understanding::FULL,
+                    "*** %02X voltage of battery %0.2f V",
+                    somethingAndVoltage, voltage);
+            setNumericValue("voltage", Unit::Volt, voltage);
+            i++;
         }
-        i++;
 
+        if (has_fraud) {
+            // Three bytes on a 0x17 frame: with four, as upstream assumes, the
+            // backflow and every monthly total come out misaligned. Their
+            // meaning is not confirmed, so they are only logged.
+            if (i + 2 >= len) return;
+            t->addSpecialExplanation(i + offset, 3, KindOfData::CONTENT,
+                    Understanding::NONE,
+                    "*** %02X%02X%02X fraud information",
+                    bytes[i], bytes[i + 1], bytes[i + 2]);
+            i += 3;
+        }
 
-        if (i >= len) return;
-        // only the bottom half changes the voltage, top half's purpose is unknown
-        // values obtained from software by changing value from 0x00-0F
-        // changing the top half didn't seem to change anything, but it might require a combination with other bytes
-        // my meters have 0x0A and 0x2A but the data seems same
-        uchar somethingAndVoltage = bytes[i];
-        double voltage = getVoltage(somethingAndVoltage & 0x0F);
-        t->addSpecialExplanation(i + offset, 1, KindOfData::CONTENT,
-                Understanding::FULL,
-                "*** %02X voltage of battery %0.2f V",
-                somethingAndVoltage, voltage);
-        setNumericValue("voltage", Unit::Volt, voltage);
-        i++;
-
-
-        if (frame_identifier == 0x95) {
+        if (has_leak) {
             if (i + 2 >= len) return;
             uchar leak_year = bytes[i];
             uchar leak_month = bytes[i + 1];
@@ -247,54 +260,43 @@ namespace {
             memset(buffer, 0, sizeof(buffer));
             snprintf(buffer, 16, "%02X.%02X.20%02X", leak_day, leak_month, leak_year);
             setStringValue("leak_date", buffer);
-
             i += 3;
         }
 
-
-        if (i + 3 >= len) return;
-        // backflow detected by the meter, has higher precision than normal values
-        double backflow = fromBackflow(bytes[i], bytes[i + 1], bytes[i + 2],
-                bytes[i + 3]);
-        t->addSpecialExplanation(i + offset, 4, KindOfData::CONTENT,
-                Understanding::FULL, "*** %02X%02X%02X%02X backflow: %0.3f m3",
-                bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3],
-                backflow);
-        setNumericValue("backflow", Unit::M3, backflow);
-
-        i += 4;
-
-        double monthData;
-        std::string month_field_name;
-        for (int month = 1; month <= 12; ++month) {
-            if (i + 2 >= len) return;
-            month_field_name.clear();
-            month_field_name.append(getMonth(month)).append("_total");
-            monthData = fromMonthly(bytes[i], bytes[i + 1], bytes[i + 2]);
-            // one of our meters was installed backwards so we know the max value is 99999,99
-            // anything above (which should only be FFFFFF, more on that below) should be 0
-            // FFFFFF (167772,15) means module was not active back then (before installation) - translates to 0
-            if (monthData >= 100000) monthData = 0;
-            t->addSpecialExplanation(i + offset, 3, KindOfData::CONTENT,
-                    Understanding::FULL,
-                    "*** %02X%02X%02X total consumption at the end of %s: %0.2f m3",
-                    bytes[i], bytes[i + 1], bytes[i + 2],
-                    getMonth(month).c_str(),
-                    monthData);
-            setNumericValue(month_field_name, Unit::M3, monthData);
-            i += 3;
+        if (has_backflow) {
+            if (i + 3 >= len) return;
+            // backflow detected by the meter, has higher precision than normal values
+            double backflow = fromBackflow(bytes[i], bytes[i + 1], bytes[i + 2],
+                    bytes[i + 3]);
+            t->addSpecialExplanation(i + offset, 4, KindOfData::CONTENT,
+                    Understanding::FULL, "*** %02X%02X%02X%02X backflow: %0.3f m3",
+                    bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3],
+                    backflow);
+            setNumericValue("backflow", Unit::M3, backflow);
+            i += 4;
         }
 
-        if (i >= len) return;
-        // changing this byte didn't seem to do anything
-        // and it's always 00 on my meters
-        uchar unknown = bytes[i];
-        t->addSpecialExplanation(i + offset, 1, KindOfData::CONTENT,
-                Understanding::NONE,
-                "*** %02X unknown data",
-                unknown);
-        i++;
-        // there should not be any more data
+        if (has_monthly) {
+            double monthData;
+            std::string month_field_name;
+            for (int month = 1; month <= 12; ++month) {
+                if (i + 2 >= len) return;
+                month_field_name.clear();
+                month_field_name.append(getMonth(month)).append("_total");
+                monthData = fromMonthly(bytes[i], bytes[i + 1], bytes[i + 2]);
+                // FFFFFF (167772,15) means module was not active back then (before installation) - translates to 0
+                if (monthData >= 100000) monthData = 0;
+                t->addSpecialExplanation(i + offset, 3, KindOfData::CONTENT,
+                        Understanding::FULL,
+                        "*** %02X%02X%02X total consumption at the end of %s: %0.2f m3",
+                        bytes[i], bytes[i + 1], bytes[i + 2],
+                        getMonth(month).c_str(),
+                        monthData);
+                setNumericValue(month_field_name, Unit::M3, monthData);
+                i += 3;
+            }
+        }
+        // a trailing byte of unknown meaning may follow
     }
 }
 
